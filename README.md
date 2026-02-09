@@ -196,6 +196,9 @@ The identity object in the response must explicitly show the relationship betwee
 
 ### Example Response (Delegation Case)
 
+
+**Request:** `GET /v1/game/users/0xMainWallet...`
+or
 **Request:** `GET /v1/game/users/0xSessionWallet...`
 
 ```json
