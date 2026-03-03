@@ -1,9 +1,12 @@
-# Standard Integration API Specification
+---
+title: prc-6 Midnight dApp Integration API
+description: Interface for integrating dApps into Midnight Platform.
+author: edward.alvarado@midnight.foundation
+status: open
+created: 2026-03-03
+---
 
-**Version:** 2.0  
-**Protocol:** REST / JSON  
-**Authentication:** Public (Read-Only); Optional API Key for private channels  
-**Author:** Edward Alvarado [edward.alvarado@midnight.foundation](mailto:edward.alvarado@midnight.foundation)  
+# Midnight dApp Integration API Specification
 
 ## Status
 
@@ -13,6 +16,7 @@ This specification is currently in draft status.
 
 - **1.0** Initial Version
 - **2.0** Generalized from game-specific to a generic app/dApp integration API, with {channel} endpoints that provide specific metric data.
+- **2.1** Incorporated PRC-1 to create a single specification.
 
 ---
 
@@ -28,12 +32,14 @@ In this architecture, the Application acts as the "Source of Truth" for:
 
 The Platform functions as an aggregator, querying these endpoints to build a unified profile for users across the ecosystem.
 
+`{BASE_URL}` is the root URL of the application's server (e.g. `https://my-game.io`). Implementers may mount the `/metrics` path at any base URL they control.
+
 Example endpoints:
 ```
-GET /v1/metrics
-GET /v1/metrics/leaderboard
-GET /v1/metrics/volume
-GET /v1/metrics/users/mn_addr_undeployed1234567890?channel=leaderboard
+GET {BASE_URL}/metrics
+GET {BASE_URL}/metrics/leaderboard
+GET {BASE_URL}/metrics/volume
+GET {BASE_URL}/metrics/users/mn_addr_undeployed1234567890?channel=leaderboard
 ```
 
 ---
@@ -42,7 +48,7 @@ GET /v1/metrics/users/mn_addr_undeployed1234567890?channel=leaderboard
 
 By default, all endpoints are public and read-only. Individual channels may be declared **private** by setting `auth: true` in their channel definition (see [Channel Object](#channel-object)).
 
-When a request targets a private channel — directly via `GET /v1/metrics/{channel}` or via the `channel` query param on `GET /v1/metrics/users/{address}` — the application must authenticate the caller using an API key.
+When a request targets a private channel — directly via `GET {BASE_URL}/metrics/{channel}` or via the `channel` query param on `GET {BASE_URL}/metrics/users/{address}` — the application must authenticate the caller using an API key.
 
 ### Passing the API Key
 
@@ -70,7 +76,7 @@ Private channels may expose sensitive data that public channels omit — for exa
 Each application exposes one or more **channels** — independent metric streams. The following channel IDs are recognized by the Platform. Applications may also expose [custom channels](#4-custom-channels).
 
 
-| Channel ID          | `score_unit`                                    | `type`     |
+| Channel ID          | `scoreUnit`                                    | `type`     |
 | ------------------- | ----------------------------------------------- | ---------- |
 | `leaderboard`       | App-defined (e.g. `"Points"`, `"Lap Time (s)"`) | —          |
 | `volume`            | `"USD Volume"`                                  | —          |
@@ -90,7 +96,7 @@ Each application exposes one or more **channels** — independent metric streams
 | `interactions`      | `"Interactions"`                                | —          |
 
 
-*`—` means `type` is `cumulative`. `snapshot` channels do not support `start_date` / `end_date` filtering.*
+*`—` means `type` is `cumulative`. `snapshot` channels do not support `startDate` / `endDate` filtering.*
 
 All channels are optional. Applications implement only the channels relevant to their use case.
 
@@ -98,7 +104,7 @@ All channels are optional. Applications implement only the channels relevant to 
 
 ## 1. App Metadata & Channels
 
-**Endpoint:** `GET /v1/metrics`
+**Endpoint:** `GET {BASE_URL}/metrics`
 
 Retrieves the application's display metadata, global achievement definitions, and the list of metric channels it exposes. The Platform uses this to render the application's profile and determine which channels to query.
 
@@ -115,14 +121,16 @@ Retrieves the application's display metadata, global achievement definitions, an
 
 ### Achievement Object
 
+Compliant with [PRC-1](./prc-1.md). The fields below are the required minimum; PRC-1 defines additional optional fields (`score`, `category`, `spoiler`, `iconGreyURI`, `startDate`, `endDate`) supported by any PRC-1-compliant consumer.
 
-| Field             | Type    | Description                                               |
-| ----------------- | ------- | --------------------------------------------------------- |
-| `id`              | String  | Unique identifier (e.g. `speed_demon`).                   |
-| `name`            | String  | Display title.                                            |
-| `description`     | String  | How to unlock this achievement.                           |
-| `icon_url`        | String  | Full URL to the badge image. Square, minimum 100×100px.   |
-| `completed_count` | Integer | Total unique users (Main Wallets) who have unlocked this. |
+| Field                | Type    | Description                                                              |
+| -------------------- | ------- | ------------------------------------------------------------------------ |
+| `name`               | String  | Unique achievement identifier (e.g. `speed_demon`).                      |
+| `displayName`        | String  | Display title.                                                           |
+| `description`        | String  | How to unlock this achievement.                                          |
+| `isActive`           | Boolean | Whether this achievement can currently be unlocked.                      |
+| `iconURI`            | String  | (Optional) Full URL to the badge image. Square, minimum 100×100px.       |
+| `percentCompleted`   | Number  | (Optional) Percentage of players (Main Wallets) who have unlocked this.  |
 
 
 ### Channel Object
@@ -133,8 +141,8 @@ Retrieves the application's display metadata, global achievement definitions, an
 | `id`          | String  | Channel identifier. Standard or custom.                                                        |
 | `name`        | String  | Display name.                                                                                  |
 | `description` | String  | What this channel measures.                                                                    |
-| `score_unit`  | String  | Label for the score value (e.g. `"KOs"`, `"USD Volume"`).                                      |
-| `sort_order`  | Enum    | `DESC` (higher is better) or `ASC` (lower is better).                                          |
+| `scoreUnit`   | String  | Label for the score value (e.g. `"KOs"`, `"USD Volume"`).                                      |
+| `sortOrder`   | Enum    | `DESC` (higher is better) or `ASC` (lower is better).                                          |
 | `type`        | Enum    | (Optional) `cumulative` (default) or `snapshot` (current state). Only include when `snapshot`. |
 | `auth`        | Boolean | (Optional) `true` if this channel requires API key authentication. Default: `false`.           |
 
@@ -147,18 +155,20 @@ Retrieves the application's display metadata, global achievement definitions, an
   "description": "High-octane neon racing.",
   "achievements": [
     {
-      "id": "speed_demon",
-      "name": "Speed Demon",
+      "name": "speed_demon",
+      "displayName": "Speed Demon",
       "description": "Finish a lap under 60 seconds.",
-      "icon_url": "https://cyber-drifter.io/assets/badges/speed.png",
-      "completed_count": 1420
+      "isActive": true,
+      "iconURI": "https://cyber-drifter.io/assets/badges/speed.png",
+      "percentCompleted": 14.2
     },
     {
-      "id": "knockout_artist",
-      "name": "Knockout Artist",
+      "name": "knockout_artist",
+      "displayName": "Knockout Artist",
       "description": "Land 100 KOs in a single season.",
-      "icon_url": "https://cyber-drifter.io/assets/badges/ko.png",
-      "completed_count": 87
+      "isActive": true,
+      "iconURI": "https://cyber-drifter.io/assets/badges/ko.png",
+      "percentCompleted": 0.87
     }
   ],
   "channels": [
@@ -166,22 +176,22 @@ Retrieves the application's display metadata, global achievement definitions, an
       "id": "leaderboard",
       "name": "Lap Time",
       "description": "Best lap time recorded per player.",
-      "score_unit": "Lap Time (s)",
-      "sort_order": "ASC"
+      "scoreUnit": "Lap Time (s)",
+      "sortOrder": "ASC"
     },
     {
       "id": "kos",
       "name": "Knock Outs",
       "description": "Total opponents knocked out per player.",
-      "score_unit": "KOs",
-      "sort_order": "DESC"
+      "scoreUnit": "KOs",
+      "sortOrder": "DESC"
     },
     {
       "id": "volume",
       "name": "USD Volume",
       "description": "Total USD volume wagered per player.",
-      "score_unit": "USD Volume",
-      "sort_order": "DESC",
+      "scoreUnit": "USD Volume",
+      "sortOrder": "DESC",
       "auth": true
     }
   ]
@@ -192,11 +202,11 @@ Retrieves the application's display metadata, global achievement definitions, an
 
 ## 2. Channel Rankings
 
-**Endpoint:** `GET /v1/metrics/{channel}`
+**Endpoint:** `GET {BASE_URL}/metrics/{channel}`
 
 Retrieves ranked entries for a specific channel.
 
-For `cumulative` channels, results reflect totals within the specified time window. For `snapshot` channels, `start_date` and `end_date` are not supported and will be ignored.
+For `cumulative` channels, results reflect totals within the specified time window. For `snapshot` channels, `startDate` and `endDate` are not supported and will be ignored.
 
 If the requested channel has `auth: true`, the request must include a valid API key. See [Authentication](#authentication).
 
@@ -207,7 +217,7 @@ If the requested channel has `auth: true`, the request must include a valid API 
 
 | Parameter | Type   | Description                                  |
 | --------- | ------ | -------------------------------------------- |
-| `channel` | String | Channel ID as declared in `GET /v1/metrics`. |
+| `channel` | String | Channel ID as declared in `GET {BASE_URL}/metrics`. |
 
 
 ### Query Parameters
@@ -215,11 +225,11 @@ If the requested channel has `auth: true`, the request must include a valid API 
 
 | Parameter          | Type             | Required | Description                                                     |
 | ------------------ | ---------------- | -------- | --------------------------------------------------------------- |
-| `start_date`       | String (ISODate) | No       | Cumulative channels only. Default: now − 1 year.                |
-| `end_date`         | String (ISODate) | No       | Cumulative channels only. Default: now.                         |
+| `startDate`       | String (ISODate) | No       | Cumulative channels only. Default: now − 1 year.                |
+| `endDate`         | String (ISODate) | No       | Cumulative channels only. Default: now.                         |
 | `limit`            | Integer          | No       | Entries to return. Default: 50. Max: 1000.                      |
 | `offset`           | Integer          | No       | Entries to skip for pagination.                                 |
-| `min_achievements` | Integer          | No       | Only return entries where `achievements_unlocked` ≥ this value. |
+| `minAchievements` | Integer          | No       | Only return entries where `achievementsUnlocked` ≥ this value. |
 
 
 ### Response Body
@@ -228,10 +238,10 @@ If the requested channel has `auth: true`, the request must include a valid API 
 | Field           | Type    | Description                                                     |
 | --------------- | ------- | --------------------------------------------------------------- |
 | `channel`       | String  | The channel ID queried.                                         |
-| `start_date`    | String  | Applied start filter. Omitted for `snapshot` channels.          |
-| `end_date`      | String  | Applied end filter. Omitted for `snapshot` channels.            |
-| `total_players` | Integer | Total unique ranked users (Main Wallets) in this result set.    |
-| `total_score`   | Number  | Sum of all scores across all ranked players in this result set. |
+| `startDate`    | String  | Applied start filter. Omitted for `snapshot` channels.          |
+| `endDate`      | String  | Applied end filter. Omitted for `snapshot` channels.            |
+| `totalPlayers` | Integer | Total unique ranked users (Main Wallets) in this result set.    |
+| `totalScore`   | Number  | Sum of all scores across all ranked players in this result set. |
 | `entries`       | Array   | Ordered rankings.                                               |
 
 
@@ -242,7 +252,7 @@ If the requested channel has `auth: true`, the request must include a valid API 
 | -------------- | ------- | -------------------------------------- |
 | `rank`         | Integer | Position (1-based).                    |
 | `address`      | String  | Main Wallet address.                   |
-| `display_name` | String  | (Optional) User's chosen username.     |
+| `displayName` | String  | (Optional) User's chosen username.     |
 | `score`        | Number  | Score for this channel and time range. |
 
 
@@ -254,26 +264,26 @@ If the requested channel has `auth: true`, the request must include a valid API 
 
 ### Example Response
 
-**Request:** `GET /v1/metrics/leaderboard`
+**Request:** `GET {BASE_URL}/metrics/leaderboard`
 
 ```json
 {
   "channel": "leaderboard",
-  "start_date": "2025-02-05T23:00:00.000Z",
-  "end_date": "2026-02-05T12:00:00.000Z",
-  "total_players": 450,
-  "total_score": 28934.6,
+  "startDate": "2025-02-05T23:00:00.000Z",
+  "endDate": "2026-02-05T12:00:00.000Z",
+  "totalPlayers": 450,
+  "totalScore": 28934.6,
   "entries": [
     {
       "rank": 1,
       "address": "0xMainWalletA...",
-      "display_name": "DriftKing",
+      "displayName": "DriftKing",
       "score": 45.2
     },
     {
       "rank": 2,
       "address": "0xMainWalletB...",
-      "display_name": null,
+      "displayName": null,
       "score": 46.8
     }
   ]
@@ -284,7 +294,7 @@ If the requested channel has `auth: true`, the request must include a valid API 
 
 ## 3. User Profile
 
-**Endpoint:** `GET /v1/metrics/users/{address}`
+**Endpoint:** `GET {BASE_URL}/metrics/users/{address}`
 
 Retrieves identity and optionally per-channel stats for a specific wallet address.
 
@@ -308,8 +318,8 @@ If any requested `channel` has `auth: true`, the request must include a valid AP
 | Parameter    | Type             | Required | Description                                                                                 |
 | ------------ | ---------------- | -------- | ------------------------------------------------------------------------------------------- |
 | `channel`    | String           | No       | Channel ID to include in the response. Repeatable. If omitted, only `identity` is returned. |
-| `start_date` | String (ISODate) | No       | Applied to all cumulative channels. Default: now − 1 year.                                  |
-| `end_date`   | String (ISODate) | No       | Applied to all cumulative channels. Default: now.                                           |
+| `startDate` | String (ISODate) | No       | Applied to all cumulative channels. Default: now − 1 year.                                  |
+| `endDate`   | String (ISODate) | No       | Applied to all cumulative channels. Default: now.                                           |
 
 
 ### Response Body
@@ -317,10 +327,12 @@ If any requested `channel` has `auth: true`, the request must include a valid AP
 
 | Field          | Type     | Description                                                                           |
 | -------------- | -------- | ------------------------------------------------------------------------------------- |
-| `identity`     | Object   | Identity resolution details. Always returned.                                        |
-| `achievements` | String[] | IDs of all achievements unlocked by this user. Always returned.                      |
-| `channels`     | Object   | Stats keyed by channel ID. Omitted if no `channel` param is sent.                    |
+| `identity`     | Object   | Identity resolution details. Always returned.                                                                           |
+| `achievements` | String[] | PRC-1 `name` values for all achievements unlocked by this user. Always returned. See [PRC-1](./prc-1.md) for full per-achievement progress tracking. |
+| `channels`     | Object   | Stats keyed by channel ID. Omitted if no `channel` param is sent.                                                       |
 
+
+NOTE: For further achivement tracking, see [PRC-1](./prc-1.md).
 
 ### Identity Object
 
@@ -328,8 +340,8 @@ If any requested `channel` has `auth: true`, the request must include a valid AP
 | Field            | Type     | Description                                                  |
 | ---------------- | -------- | ------------------------------------------------------------ |
 | `address`        | String   | The resolved Main Wallet address.                            |
-| `delegated_from` | String[] | Session Wallets that delegate to this address. May be empty. |
-| `display_name`   | String   | (Optional) Display name for this account.                    |
+| `delegatedFrom` | String[] | Session Wallets that delegate to this address. May be empty. |
+| `displayName`   | String   | (Optional) Display name for this account.                    |
 
 
 ### Channel Entry Object
@@ -339,8 +351,8 @@ Each key in `channels` is a channel ID. Its value contains:
 
 | Field        | Type   | Description                                            |
 | ------------ | ------ | ------------------------------------------------------ |
-| `start_date` | String | Applied start filter. Omitted for `snapshot` channels. |
-| `end_date`   | String | Applied end filter. Omitted for `snapshot` channels.   |
+| `startDate` | String | Applied start filter. Omitted for `snapshot` channels. |
+| `endDate`   | String | Applied end filter. Omitted for `snapshot` channels.   |
 | `stats`      | Object | User metrics for this channel and time range.          |
 
 
@@ -351,7 +363,7 @@ Each key in `channels` is a channel ID. Its value contains:
 | ---------------- | ------- | --------------------------------------------------------- |
 | `score`          | Number  | Score for this channel and time range.                    |
 | `rank`           | Integer | Dynamic rank within this channel for the specified range. |
-| `matches_played` | Integer | (Optional) Total interactions recorded.                   |
+| `matchesPlayed` | Integer | (Optional) Total interactions recorded.                   |
 
 
 ### Error Responses
@@ -362,46 +374,46 @@ Each key in `channels` is a channel ID. Its value contains:
 
 ### Example Responses
 
-**Request:** `GET /v1/metrics/users/0xSessionWallet...`
+**Request:** `GET {BASE_URL}/metrics/users/0xSessionWallet...`
 
 ```json
 {
   "identity": {
     "address": "0x4f3a1b8e2d7c9f0a5e6b3d1c8f2a7e4b9d0c5f1a",
-    "delegated_from": ["0xd3a7f2c9e1b4f6a8d0e5c2b9f4a1e7c3d6b0f8a2"],
-    "display_name": "DriftKing"
+    "delegatedFrom": ["0xd3a7f2c9e1b4f6a8d0e5c2b9f4a1e7c3d6b0f8a2"],
+    "displayName": "DriftKing"
   },
   "achievements": ["first_race", "speed_demon", "podium_finish"]
 }
 ```
 
-**Request:** `GET /v1/metrics/users/0xSessionWallet...?channel=leaderboard&channel=kos&start_date=2025-03-01T00:00:00.000Z&end_date=2026-03-01T00:00:00.000Z`
+**Request:** `GET {BASE_URL}/metrics/users/0xSessionWallet...?channel=leaderboard&channel=kos&startDate=2025-03-01T00:00:00.000Z&endDate=2026-03-01T00:00:00.000Z`
 
 ```json
 {
   "identity": {
     "address": "0x4f3a1b8e2d7c9f0a5e6b3d1c8f2a7e4b9d0c5f1a",
-    "delegated_from": ["0xd3a7f2c9e1b4f6a8d0e5c2b9f4a1e7c3d6b0f8a2"],
-    "display_name": "DriftKing"
+    "delegatedFrom": ["0xd3a7f2c9e1b4f6a8d0e5c2b9f4a1e7c3d6b0f8a2"],
+    "displayName": "DriftKing"
   },
   "achievements": ["first_race", "speed_demon", "podium_finish", "knockout_artist"],
   "channels": {
     "leaderboard": {
-      "start_date": "2025-03-01T00:00:00.000Z",
-      "end_date": "2026-03-01T00:00:00.000Z",
+      "startDate": "2025-03-01T00:00:00.000Z",
+      "endDate": "2026-03-01T00:00:00.000Z",
       "stats": {
         "score": 45.2,
         "rank": 1,
-        "matches_played": 145
+        "matchesPlayed": 145
       }
     },
     "kos": {
-      "start_date": "2025-03-01T00:00:00.000Z",
-      "end_date": "2026-03-01T00:00:00.000Z",
+      "startDate": "2025-03-01T00:00:00.000Z",
+      "endDate": "2026-03-01T00:00:00.000Z",
       "stats": {
         "score": 8750,
         "rank": 2,
-        "matches_played": 312
+        "matchesPlayed": 312
       }
     }
   }
@@ -414,27 +426,27 @@ Each key in `channels` is a channel ID. Its value contains:
 
 Applications may define channels beyond the standard list. A custom channel must:
 
-- Be declared in `GET /v1/metrics` with a valid `id`, `name`, `description`, `score_unit`, `sort_order`, and optionally `type`.
-- Implement `GET /v1/metrics/{channel}` and support the `channel` param on `GET /v1/metrics/users/{address}` following the same response envelope.
+- Be declared in `GET {BASE_URL}/metrics` with a valid `id`, `name`, `description`, `scoreUnit`, `sortOrder`, and optionally `type`.
+- Implement `GET {BASE_URL}/metrics/{channel}` and support the `channel` param on `GET {BASE_URL}/metrics/users/{address}` following the same response envelope.
 
 For custom channels, `entries` in the rankings response is `Object[]`. The Platform indexes `rank`, `address`, and `score` from each entry. Any additional fields are passed through opaquely. The same applies to `stats` in the user profile — the Platform reads `score` and `rank`; all other fields are implementer-defined.
 
 ### Example: Custom `kos` Channel
 
-**Request:** `GET /v1/metrics/kos`
+**Request:** `GET {BASE_URL}/metrics/kos`
 
 ```json
 {
   "channel": "kos",
-  "start_date": "2025-02-05T23:00:00.000Z",
-  "end_date": "2026-02-05T12:00:00.000Z",
-  "total_players": 310,
-  "total_score": 142800,
+  "startDate": "2025-02-05T23:00:00.000Z",
+  "endDate": "2026-02-05T12:00:00.000Z",
+  "totalPlayers": 310,
+  "totalScore": 142800,
   "entries": [
     {
       "rank": 1,
       "address": "0xMainWalletC...",
-      "display_name": "KO_Queen",
+      "displayName": "KO_Queen",
       "score": 9400
     }
   ]
