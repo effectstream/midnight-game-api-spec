@@ -1,9 +1,9 @@
 # Standard Integration API Specification
 
-**Version:** 2.5
-**Protocol:** REST / JSON
-**Authentication:** Public (Read-Only); Optional API Key for private channels
-**Author:** Edward Alvarado [edward.alvarado@midnight.foundation](mailto:edward.alvarado@midnight.foundation)
+**Version:** 2.0  
+**Protocol:** REST / JSON  
+**Authentication:** Public (Read-Only); Optional API Key for private channels  
+**Author:** Edward Alvarado [edward.alvarado@midnight.foundation](mailto:edward.alvarado@midnight.foundation)  
 
 ## Status
 
@@ -27,6 +27,14 @@ In this architecture, the Application acts as the "Source of Truth" for:
 - **Identity Resolution (Delegation):** Linking temporary "Session Wallets" (used during interactions) to permanent "Main Wallets" (used for reputation and aggregation).
 
 The Platform functions as an aggregator, querying these endpoints to build a unified profile for users across the ecosystem.
+
+Example endpoints:
+```
+GET /v1/metrics
+GET /v1/metrics/leaderboard
+GET /v1/metrics/volume
+GET /v1/metrics/users/mn_addr_undeployed1234567890?channel=leaderboard
+```
 
 ---
 
@@ -62,27 +70,27 @@ Private channels may expose sensitive data that public channels omit — for exa
 Each application exposes one or more **channels** — independent metric streams. The following channel IDs are recognized by the Platform. Applications may also expose [custom channels](#4-custom-channels).
 
 
-| Channel ID          | `score_unit`                                    | `type`     | Date Filtering |
-| ------------------- | ----------------------------------------------- | ---------- | -------------- |
-| `leaderboard`       | App-defined (e.g. `"Points"`, `"Lap Time (s)"`) | —          | Yes            |
-| `volume`            | `"USD Volume"`                                  | —          | Yes            |
-| `transactions`      | `"Transactions"`                                | —          | Yes            |
-| `tvl`               | `"USD"`                                         | `snapshot` | No             |
-| `verifications`     | `"Verifications"`                               | —          | Yes            |
-| `access_grants`     | `"Access Grants"`                               | —          | Yes            |
-| `votes`             | `"Votes"`                                       | —          | Yes            |
-| `proposals`         | `"Proposals"`                                   | —          | Yes            |
-| `credentials`       | `"Credentials"`                                 | —          | Yes            |
-| `reputation_checks` | `"Reputation Checks"`                           | —          | Yes            |
-| `endorsements`      | `"Endorsements"`                                | —          | Yes            |
-| `buyers`            | `"Buyers"`                                      | —          | Yes            |
-| `sellers`           | `"Sellers"`                                     | —          | Yes            |
-| `compliance_proofs` | `"Compliance Proofs"`                           | —          | Yes            |
-| `messages`          | `"Messages"`                                    | —          | Yes            |
-| `interactions`      | `"Interactions"`                                | —          | Yes            |
+| Channel ID          | `score_unit`                                    | `type`     |
+| ------------------- | ----------------------------------------------- | ---------- |
+| `leaderboard`       | App-defined (e.g. `"Points"`, `"Lap Time (s)"`) | —          |
+| `volume`            | `"USD Volume"`                                  | —          |
+| `transactions`      | `"Transactions"`                                | —          |
+| `tvl`               | `"USD"`                                         | `snapshot` |
+| `verifications`     | `"Verifications"`                               | —          |
+| `access_grants`     | `"Access Grants"`                               | —          |
+| `votes`             | `"Votes"`                                       | —          |
+| `proposals`         | `"Proposals"`                                   | —          |
+| `credentials`       | `"Credentials"`                                 | —          |
+| `reputation_checks` | `"Reputation Checks"`                           | —          |
+| `endorsements`      | `"Endorsements"`                                | —          |
+| `buyers`            | `"Buyers"`                                      | —          |
+| `sellers`           | `"Sellers"`                                     | —          |
+| `compliance_proofs` | `"Compliance Proofs"`                           | —          |
+| `messages`          | `"Messages"`                                    | —          |
+| `interactions`      | `"Interactions"`                                | —          |
 
 
-*`—` means `type` is omitted (defaults to `cumulative`).*
+*`—` means `type` is `cumulative`. `snapshot` channels do not support `start_date` / `end_date` filtering.*
 
 All channels are optional. Applications implement only the channels relevant to their use case.
 
@@ -282,7 +290,7 @@ Retrieves identity and optionally per-channel stats for a specific wallet addres
 
 **Implementation Requirement (Identity Resolution):** This endpoint accepts both Session Wallet and Main Wallet addresses. If the queried `{address}` is a Session Wallet, the application must return the linked Main Wallet's combined stats. The `identity` object must explicitly show the relationship between the queried address and the resolved address.
 
-If no `channel` query param is provided, only `identity` is returned. This is useful for identity resolution without fetching metric data.
+If no `channel` query param is provided, `identity` and `achievements` are returned without any channel stats. This is useful for identity resolution without fetching metric data.
 
 If any requested `channel` has `auth: true`, the request must include a valid API key. See [Authentication](#authentication). Only the authenticated channels are gated — public channels in the same request are always returned.
 
@@ -309,9 +317,9 @@ If any requested `channel` has `auth: true`, the request must include a valid AP
 
 | Field          | Type     | Description                                                                           |
 | -------------- | -------- | ------------------------------------------------------------------------------------- |
-| `identity`     | Object   | Identity resolution details. Always returned.                                         |
-| `achievements` | String[] | IDs of all achievements unlocked by this user. Omitted if no `channel` param is sent. |
-| `channels`     | Object   | Stats keyed by channel ID. Omitted if no `channel` param is sent.                     |
+| `identity`     | Object   | Identity resolution details. Always returned.                                        |
+| `achievements` | String[] | IDs of all achievements unlocked by this user. Always returned.                      |
+| `channels`     | Object   | Stats keyed by channel ID. Omitted if no `channel` param is sent.                    |
 
 
 ### Identity Object
@@ -342,7 +350,7 @@ Each key in `channels` is a channel ID. Its value contains:
 | Field            | Type    | Description                                               |
 | ---------------- | ------- | --------------------------------------------------------- |
 | `score`          | Number  | Score for this channel and time range.                    |
-| `ranking`        | Integer | Dynamic rank within this channel for the specified range. |
+| `rank`           | Integer | Dynamic rank within this channel for the specified range. |
 | `matches_played` | Integer | (Optional) Total interactions recorded.                   |
 
 
@@ -362,7 +370,8 @@ Each key in `channels` is a channel ID. Its value contains:
     "address": "0x4f3a1b8e2d7c9f0a5e6b3d1c8f2a7e4b9d0c5f1a",
     "delegated_from": ["0xd3a7f2c9e1b4f6a8d0e5c2b9f4a1e7c3d6b0f8a2"],
     "display_name": "DriftKing"
-  }
+  },
+  "achievements": ["first_race", "speed_demon", "podium_finish"]
 }
 ```
 
@@ -382,7 +391,7 @@ Each key in `channels` is a channel ID. Its value contains:
       "end_date": "2026-03-01T00:00:00.000Z",
       "stats": {
         "score": 45.2,
-        "ranking": 1,
+        "rank": 1,
         "matches_played": 145
       }
     },
@@ -391,7 +400,7 @@ Each key in `channels` is a channel ID. Its value contains:
       "end_date": "2026-03-01T00:00:00.000Z",
       "stats": {
         "score": 8750,
-        "ranking": 2,
+        "rank": 2,
         "matches_played": 312
       }
     }
@@ -408,7 +417,7 @@ Applications may define channels beyond the standard list. A custom channel must
 - Be declared in `GET /v1/metrics` with a valid `id`, `name`, `description`, `score_unit`, `sort_order`, and optionally `type`.
 - Implement `GET /v1/metrics/{channel}` and support the `channel` param on `GET /v1/metrics/users/{address}` following the same response envelope.
 
-For custom channels, `entries` in the rankings response is `Object[]`. The Platform indexes `rank`, `address`, and `score` from each entry. Any additional fields are passed through opaquely. The same applies to `stats` in the user profile — the Platform reads `score` and `ranking`; all other fields are implementer-defined.
+For custom channels, `entries` in the rankings response is `Object[]`. The Platform indexes `rank`, `address`, and `score` from each entry. Any additional fields are passed through opaquely. The same applies to `stats` in the user profile — the Platform reads `score` and `rank`; all other fields are implementer-defined.
 
 ### Example: Custom `kos` Channel
 
@@ -420,6 +429,7 @@ For custom channels, `entries` in the rankings response is `Object[]`. The Platf
   "start_date": "2025-02-05T23:00:00.000Z",
   "end_date": "2026-02-05T12:00:00.000Z",
   "total_players": 310,
+  "total_score": 142800,
   "entries": [
     {
       "rank": 1,
