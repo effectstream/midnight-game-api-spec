@@ -1,10 +1,10 @@
 ---
-
-## title: prc-1：Paima Achievement Interface
+title: prc-1：Paima Achievement Interface
 description: Interface for sharing in-game achievements.
 author: [seba@paimastudios.com](mailto:seba@paimastudios.com), [edward@paimastudios.com](mailto:edward@paimastudios.com), [tad@paimastudios.com](mailto:tad@paimastudios.com)
 status: open
 created: 2023-11-08
+---
 
 ## Abstract
 

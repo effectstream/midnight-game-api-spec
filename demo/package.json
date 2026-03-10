@@ -1,0 +1,22 @@
+{
+  "name": "midnight-prc6-demo",
+  "version": "1.0.0",
+  "description": "Demo implementation of PRC-6 Midnight dApp Integration API (Cyber Drifter)",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "build": "tsc",
+    "serve": "node dist/index.js"
+  },
+  "dependencies": {
+    "@fastify/type-provider-typebox": "^4.1.0",
+    "@sinclair/typebox": "^0.33.20",
+    "fastify": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.9",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
