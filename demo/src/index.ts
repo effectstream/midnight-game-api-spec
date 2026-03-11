@@ -1,10 +1,19 @@
 import Fastify from 'fastify';
+import cors from '@fastify/cors';
 import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import metricsRoute from './routes/metrics.js';
 import usersRoute from './routes/users.js';   // registered first — static `users` wins over :channel
 import channelRoute from './routes/channel.js';
 
 const app = Fastify({ logger: true }).withTypeProvider<TypeBoxTypeProvider>();
+
+await app.register(cors, {
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['*'],
+  exposedHeaders: ['*'],
+  credentials: false,
+});
 
 await app.register(metricsRoute);
 await app.register(usersRoute);
